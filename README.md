@@ -30,7 +30,7 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --vault "$HOME/claude/
 | 자동화 | 세션 동기화, 질문별 제한된 검색, 완료 시 선택적 저장 알림 |
 | 문서·설정 보조 | Context7, claude-md-management, claude-code-setup |
 
-개발 스킬의 주도 절차는 하나만 선택합니다. 기본 구현·디버깅·TDD는 Superpowers, 필요한 도메인·설계 단계는 Matt으로 연결합니다. `pstack:blast-radius`, `pstack:interrogate`와 Matt의 일부 심화 명령은 제작자가 직접 호출 전용으로 지정했으므로 자동 실행을 약속하지 않습니다. [역할 분담 상세](docs/14_개발스킬_설치와_역할분담.md)
+개발 스킬의 주도 절차는 하나만 선택합니다. 기본 구현·디버깅·TDD는 Superpowers, 필요한 도메인·설계 단계는 Matt으로 연결합니다. `pstack:blast-radius`, `pstack:interrogate`와 Matt의 일부 심화 명령은 제작자가 직접 호출 전용으로 지정했으므로 자동 실행을 약속하지 않습니다. [역할 분담 상세](docs/14-skill-routing.md)
 
 `config/plugins.json`은 설치 소스와 **검증 당시 버전**을 기록합니다. 버전 고정 lockfile은 아닙니다. 새 설치는 각 마켓플레이스의 현재 배포 항목을 따르므로 이후 버전은 달라질 수 있습니다. 플러그인 소스·캐시를 이 저장소에 복사하지 않습니다.
 
@@ -51,7 +51,8 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --with-optional --vaul
 - `config/plugins.json`: 복원할 플러그인·마켓플레이스 목록.
 - `automation/`: 보관함 쓰기의 검증·공식 트랜잭션을 유지하는 실행 코드와 문서 템플릿.
 - `scripts/bootstrap.py`: 현재 컴퓨터의 Python·Node·설정·보관함 경로를 감지하고 병합합니다.
-- `docs/`: 이전 추천 조사 및 설치 기록 14개. 기록 속 당시 설치 경로와 상태를 새 컴퓨터의 사실로 해석하지 마세요.
+- `docs/`: 이전 추천 조사 및 설치 기록 14개. 기록 속 당시 설치 경로와 상태를 새 컴퓨터의 사실로 해석하지 마세요. [문서 목차](docs/00-index.md)
+- 문서 본문은 한국어로 유지하고 파일명은 ASCII로 통일했습니다. macOS 업로드 시 한글 파일명의 NFC/NFD 정규화 차이로 링크가 끊어지는 문제를 방지합니다.
 
 스크립트는 `~/.claude/settings.json`의 관련 항목을 병합하고, `~/.claude/CLAUDE.md`에는 관리 표식이 있는 블록을 추가·갱신합니다. 기존의 다른 훅·권한·설정·지침을 보존합니다. 반복 실행해도 관리 블록과 훅이 중복되지 않습니다. 기존 지침에 상충하는 수동 규칙이 있다면 내용을 확인해 조정하세요.
 
@@ -80,4 +81,4 @@ python3.11 -B -m unittest discover -s tests -v
 claude plugin list
 ```
 
-임시 환경에서 미리보기의 무변경, 설정 보존, 재실행, 경로 공백 처리, 플러그인 설치 후 병합 등을 검증합니다. 실제 새 컴퓨터에서 로그인과 보관함 초기화까지 대신 수행하는 테스트는 아닙니다. 기존 Mac의 플러그인 선택·기억 자동화 검증은 `docs/13_설치결과와_자동기억_운영.md`, `docs/14_개발스킬_설치와_역할분담.md`를 참고하세요.
+임시 환경에서 미리보기의 무변경, 설정 보존, 재실행, 경로 공백 처리, 플러그인 설치 후 병합 등을 검증합니다. 실제 새 컴퓨터에서 로그인과 보관함 초기화까지 대신 수행하는 테스트는 아닙니다. 기존 Mac의 플러그인 선택·기억 자동화 검증은 `docs/13-installed-memory.md`, `docs/14-skill-routing.md`를 참고하세요.
