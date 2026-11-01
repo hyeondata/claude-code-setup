@@ -4,18 +4,18 @@
 
 ## 새 컴퓨터에서 시작
 
-macOS 또는 Linux에서 Git, 인증된 Claude Code CLI, **Python 3.10 이상**, **Node.js 20 이상**을 먼저 준비합니다. 아래 예시는 `python3.11`을 사용합니다. 다른 실행 파일을 쓴다면 먼저 `--version`으로 버전을 확인하고 바꾸세요. macOS의 기본 `python3`은 더 오래된 버전일 수 있습니다.
+macOS 또는 Linux에서 Git, 인증된 Claude Code CLI, **Python 3.10 이상**, **Node.js 20 이상**을 먼저 준비합니다. macOS의 기본 `python3`이 오래된 경우에도 `claude-sync`가 `python3.11` 등 설치된 지원 버전을 찾아 사용합니다.
 
 비공개 GitHub 저장소이므로 GitHub 인증이 필요합니다. `~/claude`가 이미 존재하면 비어 있는 다른 폴더에 clone하세요.
 
 ```sh
 git clone https://github.com/hyeondata/claude-code-setup.git "$HOME/claude"
 cd "$HOME/claude"
-python3.11 scripts/bootstrap.py --install-plugins
-python3.11 scripts/bootstrap.py --apply --install-plugins --vault "$HOME/claude/obsidian"
+./claude-sync pull --dry-run
+./claude-sync pull
 ```
 
-첫 실행은 **미리보기만** 합니다. `--apply`를 붙인 실행만 설정을 기록하고, `--install-plugins`가 함께 있으면 누락된 플러그인을 설치합니다. 적용 후 Claude Code의 **새 세션**을 시작하세요. 이미 설치된 사용자 플러그인의 버전이나 비활성화 상태는 강제로 바꾸지 않습니다.
+`--dry-run`은 현재 내려받은 파일로 **적용 미리보기만** 하며 Git fetch/pull이나 파일 변경을 하지 않습니다. `./claude-sync pull`은 최신 설정을 받아 적용하고 누락된 기본 플러그인을 설치합니다. 적용 후 Claude Code의 **새 세션**을 시작하세요. 이미 설치된 사용자 플러그인의 버전이나 비활성화 상태는 강제로 바꾸지 않습니다. 실행기는 Python 3.10 이상을 자동으로 찾습니다.
 
 보관함이 다른 곳에 있다면 `--vault "/실제/보관함/경로"`를 지정합니다. 설치 스크립트는 보관함을 생성·초기화·복사하지 않습니다. 기존 보관함은 Obsidian Sync 등 별도 방법으로 복원하고, 새 보관함을 원하면 Claude Code에서 `/claude-obsidian:wiki`에 사용할 경로와 초기화 요청을 전달하세요. 초기화 전에는 지식 검색·저장이 작동하지 않을 수 있지만 설정 설치는 가능합니다.
 
@@ -42,7 +42,7 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --vault "$HOME/claude/
 - Dart/Flutter가 필요하면 SDK를 설치하고 `dart`를 실행할 수 있는 PATH를 준비한 뒤 아래 선택 설치를 사용합니다. SDK 자체를 다운로드하거나 프로젝트별 SDK 경로를 복제하지 않습니다.
 
 ```sh
-python3.11 scripts/bootstrap.py --apply --install-plugins --with-optional --vault "$HOME/claude/obsidian"
+~/claude/claude-sync pull --with-optional
 ```
 
 ## 관리되는 파일과 보존 범위
@@ -50,6 +50,7 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --with-optional --vaul
 - `config/CLAUDE.md.tmpl`: 영어 운영 지침의 원본. 응답과 개인 노트는 한국어 기본값입니다.
 - `config/plugins.json`: 복원할 플러그인·마켓플레이스 목록.
 - `automation/`: 보관함 쓰기의 검증·공식 트랜잭션을 유지하는 실행 코드와 문서 템플릿.
+- `claude-sync` / `scripts/sync.py`: 공유 파일 커밋·푸시 및 pull 후 적용을 수행합니다.
 - `scripts/bootstrap.py`: 현재 컴퓨터의 Python·Node·설정·보관함 경로를 감지하고 병합합니다.
 - `docs/`: 이전 추천 조사 및 설치 기록 14개. 기록 속 당시 설치 경로와 상태를 새 컴퓨터의 사실로 해석하지 마세요. [문서 목차](docs/00-index.md)
 - 문서 본문은 한국어로 유지하고 파일명은 ASCII로 통일했습니다. macOS 업로드 시 한글 파일명의 NFC/NFD 정규화 차이로 링크가 끊어지는 문제를 방지합니다.
@@ -62,32 +63,44 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --with-optional --vaul
 
 공유할 지침은 `config/CLAUDE.md.tmpl`, 플러그인 목록은 `config/plugins.json`에서 수정합니다. `~/.claude/CLAUDE.md`와 `~/.claude/settings.json`은 설치 후 생성·병합되는 기기별 파일이므로 그 파일만 수정하면 Git으로 공유되지 않습니다.
 
-변경한 컴퓨터에서 diff를 검토하고, 수정한 공유 원본만 커밋하여 올립니다. 아래는 지침과 플러그인 목록을 변경한 예시입니다.
+변경한 컴퓨터에서는 어느 폴더에서든 다음 한 명령으로 공유 파일의 변경을 커밋·푸시합니다. 커밋 메시지는 생략할 수 있습니다.
 
 ```sh
-cd ~/claude
-git diff -- config/CLAUDE.md.tmpl config/plugins.json
-git add -- config/CLAUDE.md.tmpl config/plugins.json
-git diff --cached
-git commit -m "Update shared Claude settings"
-git push origin main
+~/claude/claude-sync push -m "Update shared Claude settings"
 ```
 
-자동 커밋이나 자동 푸시는 설정하지 않습니다. 다른 컴퓨터는 아래 업데이트 절차로 `git pull`한 뒤 그 컴퓨터의 보관함 경로를 사용해 적용하세요. `git pull` 자체가 전역 Claude 설정을 적용하거나 기억 데이터를 동기화하는 것은 아닙니다. 적용 후 새 Claude Code 세션을 시작합니다.
-
-## 업데이트
+다른 컴퓨터에서는 다음 한 명령으로 최신 설정을 내려받아 적용하고, 새로 추가된 기본 플러그인을 설치합니다.
 
 ```sh
-git pull --ff-only
-python3.11 scripts/bootstrap.py --vault "/현재/보관함/경로"
-python3.11 scripts/bootstrap.py --apply --vault "/현재/보관함/경로"
+~/claude/claude-sync pull
 ```
 
-다른 보관함을 사용한다면 재적용할 때도 같은 `--vault`를 지정하세요. 지침 변경은 설치된 전역 파일 대신 `config/CLAUDE.md.tmpl`에 반영하여 커밋하고 각 컴퓨터에서 다시 적용합니다. 새 플러그인이 추가된 경우에만 `--install-plugins`를 함께 사용하면 됩니다.
+이 명령이 추가되기 전에 복제한 다른 컴퓨터에서는 최초 한 번 `git -C ~/claude pull --ff-only`로 실행기를 받아야 합니다. 그 뒤부터는 위 명령만 사용하면 됩니다.
+
+백그라운드 자동 실행은 하지 않습니다. 명령을 실행할 때만 동기화합니다. `push`는 이 저장소의 공유 원본을 올리는 명령이며, 그 컴퓨터에도 변경 내용을 적용하려면 `pull`을 실행합니다. 적용 후 Claude Code의 새 세션을 시작하세요.
+
+## 업데이트와 컴퓨터별 경로
+
+`pull`은 `git pull --ff-only` 성공 후 기존 설치 스크립트를 실행합니다. 이전 적용 때 생성한 `automation/config.json`의 보관함·Claude 설정·Node 경로를 재사용합니다. 처음 실행할 때 기본 보관함은 **복제한 저장소 안의 `obsidian/`**입니다. Claude 설정은 `CLAUDE_CONFIG_DIR` 또는 `~/.claude`를 사용합니다.
+
+다른 경로나 선택 플러그인이 필요할 때만 지정하세요. 보관함·Claude 설정·Node 경로는 성공적으로 적용된 뒤 다음 실행에서 재사용됩니다. 선택 플러그인의 신규 설치는 필요한 컴퓨터에서 `--with-optional`을 사용합니다.
+
+```sh
+~/claude/claude-sync pull --vault "/다른/Obsidian/경로"
+~/claude/claude-sync pull --claude-home "/다른/Claude/설정"
+~/claude/claude-sync pull --with-optional
+~/claude/claude-sync pull --dry-run
+```
+
+- 공유 파일에 커밋하지 않은 Git 변경이 있으면 `pull`이 중단됩니다. 변경을 먼저 커밋·푸시하거나 별도로 정리하세요. 보관함처럼 Git에서 제외된 파일의 변경은 방해하지 않습니다.
+- 다른 컴퓨터가 먼저 push한 상태에서는 `push`가 중단될 수 있습니다. 원격과 로컬에 서로 다른 커밋이 생겼다면 일반 Git 명령으로 내용을 검토·병합한 뒤 다시 실행하세요. 자동 강제 push, reset, stash는 하지 않습니다.
+- 푸시가 실패해도 생성한 로컬 커밋은 남습니다. 네트워크·인증 문제를 해결한 뒤 같은 `push` 명령으로 재시도할 수 있습니다. 변경이 없으면 빈 커밋을 만들지 않습니다.
+- pull은 성공했지만 적용이 실패한 경우 원인을 해결하고 같은 `pull` 명령을 다시 실행하면 됩니다. 기존 설치 스크립트는 재실행과 백업을 지원합니다.
+- Python 실행 파일을 직접 정하려면 `CLAUDE_SYNC_PYTHON="/Python/실행파일" ~/claude/claude-sync pull`을 사용합니다. 일반 사용에는 필요하지 않습니다.
 
 ## 제외와 복구
 
-`.gitignore`는 허용 목록 방식입니다. `obsidian/`뿐 아니라 실제 설정 JSON, 저장 초안, 백업, 로그, 데이터베이스, 캐시, 인증 파일은 기본적으로 추적하지 않습니다. 새 소스 파일을 추가하려면 필요한 경로만 허용 목록에 추가하세요. 개인 파일을 `git add -f`로 강제 등록하지 마세요.
+`.gitignore`는 허용 목록 방식입니다. `obsidian/`뿐 아니라 실제 설정 JSON, 저장 초안, 백업, 로그, 데이터베이스, 캐시, 인증 파일은 기본적으로 추적하지 않습니다. `claude-sync push`도 명시된 공유 파일만 추가하고, 이미 강제로 추가된 허용 외 파일과 아직 보내지 않은 커밋의 파일 목록을 검사합니다. 새 공유 소스를 추가할 때는 `.gitignore`와 `scripts/sync.py`의 허용 목록을 함께 갱신하세요. 개인 파일을 `git add -f`로 강제 등록하지 마세요. 허용된 설정·문서 안에 직접 적은 비밀값까지 자동 판별하지는 않으므로 공유 원본에는 인증정보나 개인 노트 본문을 넣지 않습니다.
 
 적용 전에는 백업 경로와 복구 지침을 출력합니다. 해당 백업의 `manifest.json`에 따라 원래 있던 파일을 복원하고, 처음 생성된 파일만 삭제하면 됩니다. 플러그인 설치는 외부 CLI 작업이므로 별도 제거가 필요할 수 있습니다. 설치 중 실패했다면 원인을 해결하고 같은 명령으로 재실행하세요. 전체 사용자 설정을 과거 사본으로 무조건 덮어쓰면 이후의 다른 변경을 잃을 수 있습니다.
 
@@ -98,4 +111,4 @@ python3.11 -B -m unittest discover -s tests -v
 claude plugin list
 ```
 
-임시 환경에서 미리보기의 무변경, 설정 보존, 재실행, 경로 공백 처리, 플러그인 설치 후 병합 등을 검증합니다. 실제 새 컴퓨터에서 로그인과 보관함 초기화까지 대신 수행하는 테스트는 아닙니다. 기존 Mac의 플러그인 선택·기억 자동화 검증은 `docs/13-installed-memory.md`, `docs/14-skill-routing.md`를 참고하세요.
+임시 환경에서 미리보기의 무변경, 설정 보존, 재실행, 경로 공백 처리, 플러그인 설치 후 병합을 검증합니다. 별도의 임시 Git 원격 저장소와 두 복제본으로 커밋·푸시, pull 후 적용, 보관함 제외 및 충돌 시 중단도 확인합니다. 실제 새 컴퓨터에서 로그인과 보관함 초기화까지 대신 수행하는 테스트는 아닙니다. 기존 Mac의 플러그인 선택·기억 자동화 검증은 `docs/13-installed-memory.md`, `docs/14-skill-routing.md`를 참고하세요.

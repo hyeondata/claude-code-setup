@@ -2,6 +2,7 @@
 /*
 !/.gitignore
 !/README.md
+!/claude-sync
 !/config/
 /config/*
 !/config/CLAUDE.md.tmpl
@@ -15,9 +16,11 @@
 !/scripts/
 /scripts/*
 !/scripts/bootstrap.py
+!/scripts/sync.py
 !/tests/
 /tests/*
 !/tests/test_bootstrap.py
+!/tests/test_sync.py
 !/docs/
 /docs/*
 !/docs/*.md
