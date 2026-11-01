@@ -58,6 +58,23 @@ python3.11 scripts/bootstrap.py --apply --install-plugins --with-optional --vaul
 
 `automation/config.json`, `automation/AUTOMATION.md`, `automation/drafts/`는 컴퓨터에서 생성하는 **Git 제외 대상**입니다. 적용 후 운영 방법은 생성된 `automation/AUTOMATION.md`를 읽으세요. 기본 경로가 아닌 Claude 설정 디렉터리를 사용하면 `--claude-home`을 지정하고 Claude도 같은 `CLAUDE_CONFIG_DIR`로 실행해야 합니다.
 
+## 변경한 설정을 다른 컴퓨터와 공유
+
+공유할 지침은 `config/CLAUDE.md.tmpl`, 플러그인 목록은 `config/plugins.json`에서 수정합니다. `~/.claude/CLAUDE.md`와 `~/.claude/settings.json`은 설치 후 생성·병합되는 기기별 파일이므로 그 파일만 수정하면 Git으로 공유되지 않습니다.
+
+변경한 컴퓨터에서 diff를 검토하고, 수정한 공유 원본만 커밋하여 올립니다. 아래는 지침과 플러그인 목록을 변경한 예시입니다.
+
+```sh
+cd ~/claude
+git diff -- config/CLAUDE.md.tmpl config/plugins.json
+git add -- config/CLAUDE.md.tmpl config/plugins.json
+git diff --cached
+git commit -m "Update shared Claude settings"
+git push origin main
+```
+
+자동 커밋이나 자동 푸시는 설정하지 않습니다. 다른 컴퓨터는 아래 업데이트 절차로 `git pull`한 뒤 그 컴퓨터의 보관함 경로를 사용해 적용하세요. `git pull` 자체가 전역 Claude 설정을 적용하거나 기억 데이터를 동기화하는 것은 아닙니다. 적용 후 새 Claude Code 세션을 시작합니다.
+
 ## 업데이트
 
 ```sh
