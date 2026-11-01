@@ -52,6 +52,20 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(second, third)
         self.assertEqual(state2, state3)
 
+    def test_adopting_existing_permission_rules_is_immediately_idempotent(self):
+        arguments = (Path('/setup/automation'), Path('/vault'),
+                     Path('/bin/python3'), Path('/bin/node'))
+        _, baseline = bootstrap.merge_settings({}, *arguments, {}, '/usr/bin')
+        existing = {'permissions': {'allow': [baseline['permissionRules'][0],
+                    'Read(/project/**)', baseline['permissionRules'][1], 'Bash(git status)']}}
+        first, state = bootstrap.merge_settings(existing, *arguments, {}, '/usr/bin')
+        second, state2 = bootstrap.merge_settings(first, *arguments, state, '/usr/bin')
+        self.assertEqual(first, second)
+        self.assertEqual(state, state2)
+        self.assertEqual([rule for rule in first['permissions']['allow']
+                          if rule not in state['permissionRules']],
+                         ['Read(/project/**)', 'Bash(git status)'])
+
     def test_managed_policy_keeps_user_text_and_changes_only_block(self):
         first = bootstrap.managed_instructions('Keep personal rule.\n', 'managed old')
         second = bootstrap.managed_instructions(first, 'managed new')

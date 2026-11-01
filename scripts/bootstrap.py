@@ -132,8 +132,8 @@ def merge_settings(existing: dict, automation: Path, vault: Path,
     # Quote each executable/path as a shell token, including paths with spaces.
     rules = ['Bash(' + shlex.join([interpreter, adapter]) + ' *)'
              for interpreter in ('python3', str(python))]
-    previous_rules = set(previous.get('permissionRules', []))
-    permissions['allow'] = [rule for rule in allow if rule not in previous_rules]
+    owned_rules = set(previous.get('permissionRules', [])) | set(rules)
+    permissions['allow'] = [rule for rule in allow if rule not in owned_rules]
     permissions['allow'] += [rule for rule in rules if rule not in permissions['allow']]
     result['autoMemoryEnabled'] = True
     state = {'managedBy': OWNER, 'schemaVersion': 1, 'hookScript': script, 'permissionRules': rules}
