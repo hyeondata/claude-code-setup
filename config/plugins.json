@@ -1,0 +1,74 @@
+{
+  "verified_at": "2026-11-01",
+  "claude_code_verified": "2.1.316",
+  "version_policy": "Verified versions are informational. Native marketplace installs follow the catalog; this file is not a version lock.",
+  "marketplaces": [
+    {
+      "name": "claude-plugins-official",
+      "source": "anthropics/claude-plugins-official"
+    },
+    {
+      "name": "superpowers-marketplace",
+      "source": "obra/superpowers-marketplace"
+    },
+    {
+      "name": "agricidaniel-claude-obsidian",
+      "source": "AgriciDaniel/claude-obsidian"
+    },
+    {
+      "name": "cursor-plugins",
+      "source": "cursor/plugins"
+    },
+    {
+      "name": "dart-flutter",
+      "source": "flutter/agent-plugins"
+    }
+  ],
+  "plugins": [
+    {
+      "id": "superpowers@claude-plugins-official",
+      "version_verified": "7.0.0",
+      "optional": false
+    },
+    {
+      "id": "mattpocock-skills@claude-plugins-official",
+      "version_verified": "1.3.1",
+      "optional": false
+    },
+    {
+      "id": "pstack@cursor-plugins",
+      "version_verified": "0.15.36",
+      "optional": false
+    },
+    {
+      "id": "episodic-memory@superpowers-marketplace",
+      "version_verified": "1.6.0",
+      "optional": false
+    },
+    {
+      "id": "claude-obsidian@agricidaniel-claude-obsidian",
+      "version_verified": "3.0.1",
+      "optional": false
+    },
+    {
+      "id": "claude-md-management@claude-plugins-official",
+      "version_verified": "1.0.0",
+      "optional": false
+    },
+    {
+      "id": "claude-code-setup@claude-plugins-official",
+      "version_verified": "1.0.0",
+      "optional": false
+    },
+    {
+      "id": "context7@claude-plugins-official",
+      "version_verified": "a7ba5b93db0c",
+      "optional": false
+    },
+    {
+      "id": "dart-flutter@dart-flutter",
+      "version_verified": "1.0.7",
+      "optional": true
+    }
+  ]
+}
