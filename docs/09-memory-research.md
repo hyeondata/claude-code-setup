@@ -1,0 +1,323 @@
+> 이 문서는 2026-11-01 조사·설치 기록입니다. 새 컴퓨터에서는 루트 README와 `scripts/bootstrap.py`를 우선 사용하세요. `$HOME`은 해당 컴퓨터의 홈 디렉터리이며, 당시 경로·검증 결과가 새 컴퓨터에 그대로 적용되는 것은 아닙니다.
+
+# Claude Code 기억·검색 도구 추가 조사
+
+확인일: **2026-11-01**. 공식 문서, 제작자 저장소, 일부 hook 소스와 가격·약관을 읽고 정리했다.
+실제 설치, 설정 변경, 기능 실행이나 성능 비교 실험은 하지 않았다.
+기존 `02-memory-knowledge.md`에 없는 후보 8개를 중심으로 다룬다.
+제품의 공개 성능 수치·절감률을 사용자 환경에서 검증된 효과로 인용하지 않는다.
+
+## 1. 현재 조합에서 무엇을 더할 것인가
+
+유지할 설계는 **Auto memory·CLAUDE.md + episodic-memory + claude-obsidian**다.
+각각 지속되는 선호·명시적 규칙, 과거 대화, 사람이 읽는 지식 위키를 담당한다.
+선택한 vault는 `$HOME/claude/obsidian`이지만, 폴더 존재만으로 위키 초기화나 플러그인 연결이 끝난 것은 아니다.
+아래 후보는 현재 설계를 전부 교체하라는 제안이 아니다.
+
+추가 조사에서 판단을 바꿀 만한 발견은 세 가지다.
+
+- **QMD**는 위키 작성기를 바꾸지 않고 로컬 의미 검색을 보강할 수 있다.
+- **Obsidian Local REST API는 MCP를 자체 제공**하므로 새 연결에 예전 Python 래퍼가 반드시 필요한 것은 아니다.
+- **Hindsight의 현행 경로는 통합 coding-agents 패키지**다. 구형 Claude 전용 플러그인 안내를 그대로 따르면 안 된다.
+
+| 후보 | 유형 | 현재 조합에 대한 위치 | 권장도 |
+|---|---|---|---|
+| QMD | 로컬 검색 CLI + MCP + 선택형 Claude 플러그인 | 문서 검색 **추가** | 자료가 쌓이면 가장 먼저 검토 |
+| MCPVault | 파일 접근용 로컬 MCP | 여러 AI의 vault 읽기 **추가** | 다른 클라이언트도 같은 노트를 읽을 때 |
+| Obsidian Local REST API | Obsidian 커뮤니티 플러그인 + 내장 MCP | 실행 중인 Obsidian 제어 **추가** | 활성 노트·앱 명령이 필요할 때 |
+| Supermemory | Claude 플러그인 + 클라우드 기억 서비스 | 대화 기억 층 **대체 후보** | 자동 회상과 클라우드 공유가 중요할 때 |
+| Mem0 Claude plugin | Claude 플러그인 + Mem0 Platform | 대화 기억 층 **대체 후보** | 여러 도구의 구조화 기억을 공유할 때 |
+| Hindsight Coding Agents | hook 통합 + MCP + 기억 서버 | 대화·프로젝트 기억 층 **대체 후보** | 여러 코딩 agent가 프로젝트 기억을 공유할 때 |
+| Pieces MCP | 데스크톱 기억 앱 + MCP | 앱 전반의 업무 기억 **추가** | Claude 밖의 업무 이력도 찾을 때 |
+| Letta / MemFS | 별도 agent 실행 환경·기억 파일시스템 | 실행 환경 **대체**, 또는 별도 agent 위임 | 현재 목적에서는 후순위 |
+
+권장도는 현재 사용 목적에 맞춘 판단이다. 기능이 많다는 이유로 모두 설치하는 조합은 추천하지 않는다.
+각 제품의 기능·운영 근거는 아래 해당 절의 공식 출처에 연결했다.
+
+## 2. 자동화라는 말을 세 단계로 구분
+
+| 단계 | 실제로 확인할 질문 |
+|---|---|
+| 자동 수집·저장 | 어떤 이벤트가 어떤 내용을 어느 저장소로 보내는가? |
+| 자동 검색 | 매 프롬프트마다 검색하는가, 첫 프롬프트만 검색하는가, 모델이 도구를 선택하는가? |
+| 자동 문맥 주입 | 시작 시 고정 프로필을 넣는가, 질의에 맞춘 검색 결과를 넣는가? |
+
+MCP 등록은 도구를 제공한다. 등록만으로 위 세 단계가 모두 실행되지는 않는다.
+`CLAUDE.md`의 “필요하면 검색·저장하라”는 모델의 행동 지침이며, hook 실행 보장과는 다르다.
+로컬 데이터베이스를 사용해도 추출·요약 모델이나 호출하는 Claude로 내용이 전송될 수 있다.
+`Stop`은 응답 종료 시점이고, `SessionEnd`는 세션 종료 시점이다. 둘을 같은 이벤트로 적으면 안 된다.
+
+| 후보 | 자동 수집·저장 | 자동 검색·문맥 주입 |
+|---|---|---|
+| QMD | 지정 폴더를 갱신 명령으로 색인; 별도 주기 필요 | MCP 검색은 모델 선택; 기본 시작 주입 없음 |
+| MCPVault | 대화 수집 없음; 요청한 파일 작업 | MCP 검색·읽기를 모델이 선택 |
+| Local REST API | 대화 수집 없음; 이벤트 후처리는 별도 | MCP 검색·읽기를 모델이 선택 |
+| Supermemory | `Stop`의 비동기 대화 저장 | 시작 프로필 + 프롬프트 검색; 설정에 따라 지침형으로 변경 |
+| Mem0 plugin | 로컬 캡처 후 배치·잔여분 전송 | 세션 첫 유효 프롬프트 recall; 후속은 도구·명령 |
+| Hindsight Coding Agents | Git·대화 수집, `Stop` transcript 저장 | 시작 안내 + 기본 첫 프롬프트 자동 주입 |
+| Pieces | LTM을 켜면 선택 범위 업무 맥락 수집 | MCP 질의를 모델이 선택 |
+| Letta | 별도 agent의 기억 갱신; dreaming은 설정 | 핵심 기억 매 턴 포함, 상세 기억은 필요시 회수 |
+
+표는 제품별 기본 흐름의 요약이다. 활성화 여부·옵션·데이터 목적지는 아래 설명을 함께 봐야 한다.
+
+## 3. QMD — 로컬 문서 검색을 보강하는 우선 후보
+
+**판정: 기존 위키의 검색 보강으로 추가. 대화 자동 기록기나 위키 작성기를 대체하지 않는다.**
+
+- `tobi/qmd`의 `@tobilu/qmd` 패키지가 문서·노트 폴더를 collection으로 색인한다.
+- BM25 키워드 검색, 임베딩 의미 검색, 질의 확장·reranking을 조합한다.
+- 모델 추론과 색인은 로컬에서 수행한다. MIT 라이선스이며 자체 검색 서비스 구독은 필요 없다.
+- Claude 플러그인과 검색·회수용 MCP를 제공한다.
+
+### 자동화와 별도 설정
+
+- collection 등록·초기 색인·임베딩 생성이 필요하다.
+- 변경 반영은 `qmd update`, 임베딩 생성은 `qmd embed`의 역할이다.
+- collection의 `update` 설정은 **`qmd update`를 실행할 때 먼저 실행하는 갱신 명령**이다.
+- 상시 감시·자동 스케줄은 아니다. 자동 재색인 주기는 별도 설계가 필요하다.
+
+### 현재 사용자에게 맞는 조건
+
+- claude-obsidian의 BM25로 찾기 어려운 표현 차이·개념 검색이 실제로 생길 때 유용하다.
+- 검색은 QMD, 지식 저장은 claude-obsidian으로 나눌 수 있다. 기본 자동 연동은 확인하지 않았다.
+- README는 기본 `embeddinggemma-300M-Q8_0`를 영어 최적화로 설명한다. 한국어 노트는 다국어 모델 선택과 실제 질의 평가가 필요하다.
+- 로컬 GGUF 모델 다운로드, 캐시 용량, CPU/GPU·메모리 사용 부담은 있다.
+- 검색 결과는 Claude 문맥에 들어간다. 노트가 거의 없으면 추가 실익이 작다.
+
+출처: [QMD README·모델·갱신 설정](https://github.com/tobi/qmd).
+
+## 4. MCPVault — Obsidian을 켜지 않고 같은 노트를 읽는 연결 도구
+
+**판정: 여러 MCP 클라이언트가 같은 vault를 읽어야 할 때 추가. 우선 읽기 전용으로 검토.**
+
+- `bitbonsai`의 `@bitbonsai/mcpvault`는 로컬 stdio MCP다. Obsidian 앱·플러그인 없이 파일을 읽는다.
+- 노트 읽기·부분 읽기, frontmatter·태그 조회, 링크 해석, 검색·편집 도구를 제공한다.
+- 검색은 다중 단어 매칭과 BM25 reranking이다. 벡터 의미 검색 엔진으로 소개하면 안 된다.
+- 기존 vault 접근 계층이며 별도 기억 추출기는 아니다.
+
+### 자동화와 별도 설정
+
+- Node.js 22.12 이상, MCP 등록, 정확한 vault 경로 지정이 필요하다.
+- 경로 생략 시 현재 디렉터리를 사용하므로 vault를 명시한다.
+- `--read-only`를 쓰면 변경 도구를 노출하지 않고 직접 호출도 거절한다.
+- `--exclude`는 검색·목록에서 숨기는 설정이다. 직접 파일 읽기·쓰기 권한까지 차단하는 기능은 아니다.
+- 대화 자동 수집, 시작 시 문맥 주입, 매 프롬프트 검색 hook은 제공하는 것으로 확인하지 않았다.
+
+### 현재 사용자에게 맞는 조건
+
+- 다른 MCP 클라이언트에도 같은 노트를 제공할 때 가치가 있다.
+- claude-obsidian만 쓰고 파일 접근에 문제가 없다면 기능 중복이 크다.
+- generic `write_note`가 claude-obsidian의 출처·계획·검증·트랜잭션 흐름을 대신한다고 가정하면 안 된다.
+- 기존 위키 운영을 유지할 때는 읽기 도구로 연결하고, 지식 쓰기는 기존 워크플로를 사용한다.
+- MIT이며 별도 서비스 요금은 없다. 로컬 파일이더라도 회수한 내용은 호출 모델로 전달된다.
+
+출처: [MCPVault README·읽기 전용·제외 설정](https://github.com/bitbonsai/mcpvault), [제작자 사이트](https://mcpvault.org/).
+
+## 5. Obsidian Local REST API — 현재는 MCP가 자체 내장됨
+
+**판정: 활성 노트·Obsidian 명령 실행이 필요하면 추가. 단순 파일 검색만 필요하면 MCPVault와 비교해 하나를 선택.**
+
+- `coddingtonbear/obsidian-local-rest-api`는 Obsidian 커뮤니티 플러그인이다.
+- 현재 README는 REST API와 자체 MCP 서버를 함께 제공한다고 명시한다.
+- 노트 CRUD·부분 수정, full-text·JsonLogic 검색, 활성 파일, 태그, 앱 명령·파일 열기를 지원한다.
+- 외부 앱이 Obsidian 내부 상태와 상호작용할 수 있다는 점이 직접 파일 접근과 다르다.
+- MIT이며 별도 기억 서비스 구독은 없다.
+
+### 자동화와 별도 설정
+
+- Obsidian이 실행 중이고 대상 vault의 플러그인이 활성화되어야 한다.
+- API 키와 로컬 HTTPS 인증서 처리, Claude Code의 HTTP MCP 연결이 필요하다.
+- 문서상 기본 MCP 주소는 `https://127.0.0.1:27124/mcp/`다.
+- 파일 이벤트 스트림도 제공하지만, 이벤트를 노트 요약·대화 기록으로 바꾸는 자동화는 별도다.
+- 대화 수집·장기 기억 추출·질문마다 자동 recall을 기본 기능으로 확인하지 않았다.
+- 저장은 해당 로컬 vault다. 읽힌 내용이 모델에 전달되는 점은 동일하다.
+
+### 기존 mcp-obsidian 래퍼는 어떻게 볼 것인가
+
+- `MarkusPfundstein/mcp-obsidian`은 이 REST API 플러그인을 감싸는 별도 Python MCP 서버다.
+- Python 3.11 이상과 REST API 플러그인·API 키가 필요하고, 해당 저장소는 MCP Python SDK 2 미만을 요구한다.
+- 기존 환경의 호환성을 유지할 이유는 있지만, 새 연결에서 래퍼를 먼저 더할 근거는 약해졌다.
+- **현재 REST API의 내장 MCP를 우선 비교**하고, 특정 기능·클라이언트 제약이 있을 때만 래퍼를 검토한다.
+- 어느 연결을 써도 일반 파일 쓰기가 claude-obsidian 위키의 관리 절차를 자동으로 거치는 것은 아니다.
+
+출처: [Local REST API README](https://github.com/coddingtonbear/obsidian-local-rest-api), [기존 mcp-obsidian README](https://github.com/MarkusPfundstein/mcp-obsidian).
+
+## 6. Supermemory — 매 프롬프트 자동 회상을 원하는 경우
+
+**판정: episodic-memory와 함께 기본 설치하기보다, 클라우드 기반 대화 기억으로 바꾸고 싶을 때 검토.**
+
+- `supermemoryai/claude-supermemory`의 Claude 플러그인명은 `supermemory`다.
+- 대화에서 선호·프로젝트 맥락을 기억하고, Git remote 기반 범위를 여러 agent에서 공유할 수 있다.
+- Node.js 18 이상, 서비스 인증 또는 API 키가 필요하다. 기본 저장 목적지는 Supermemory 서비스다.
+- 플러그인의 MIT 라이선스와 hosted 서비스의 이용료는 별개다.
+
+### 확인된 hook 자동화
+
+| 이벤트 | 동작 |
+|---|---|
+| `SessionStart` | 저장된 사용자·프로젝트 프로필을 문맥에 제공 |
+| `UserPromptSubmit` | 관련 기억을 직접 검색하고 중복을 줄여 문맥에 주입 |
+| `Stop` | 대화의 새 부분을 비동기로 저장 |
+
+`recallDirective`를 선택하면 직접 검색 대신 모델에게 검색을 권고하는 방식으로 달라진다.
+따라서 설정을 보지 않고 “항상 hook이 직접 검색한다”고 단정하면 안 된다.
+별도 저장소 색인 명령은 수동 작업이며, 모든 코드가 항상 자동 색인된다는 뜻이 아니다.
+근거: [실제 hooks.json](https://github.com/supermemoryai/claude-supermemory/blob/main/plugin/hooks/hooks.json), [README](https://github.com/supermemoryai/claude-supermemory).
+
+### 비용·중복·판단
+
+- 확인 당시 Free는 월 $5 크레딧, Pro는 월 $19와 $20 크레딧이며 추가 사용 과금이 있다.
+- 자가 호스팅은 Scale/Enterprise 안내를 확인했다. 개인용 무료 로컬 서버로 분류하지 않는다.
+- 로컬 가림 처리는 일부 민감 문자열을 줄이는 기능이지, 전송 내용이 언제나 안전하다는 보증이 아니다.
+- 자동 검색·저장이 강한 만큼 episodic-memory와 원문·기억이 중복되고 문맥 주입량도 늘 수 있다.
+- claude-obsidian은 선별 지식 저장소로 유지할 수 있으나, 두 제품의 자동 위키 동기화는 확인하지 않았다.
+
+출처: [현재 가격표](https://supermemory.ai/pricing/), [플러그인 README](https://github.com/supermemoryai/claude-supermemory).
+
+## 7. Mem0 Claude Code plugin — 구조화 기억의 클라우드 공유
+
+**판정: 개인·프로젝트 기억을 여러 도구와 공유할 필요가 있을 때 대화 기억 층의 대체 후보.**
+
+- 현행 공식 경로는 `mem0ai/mem0/integrations/claude-code-plugin`이다.
+- 과거 `mem0-plugin` 설명이나 예전 MCP 도구 개수를 현행 플러그인에 그대로 적용하면 안 된다.
+- Python 3.10 이상, Git, Mem0 Platform API 키가 필요하다.
+- 로컬 SQLite·대기열을 쓰지만, 기억 추출은 Platform으로 내용을 전송하는 구성이다.
+
+### 자동 저장과 자동 검색은 범위가 다르다
+
+- 사용자 프롬프트·답변·변경 경로·짧은 실행 결과를 먼저 로컬에 캡처한다.
+- 기본 5회 완료 교환 단위로 별도 worker가 내용을 보내 기억을 추출한다.
+- 세션 종료·압축·유휴 상태에서도 남은 배치를 처리하는 흐름이 있다.
+- 자동 recall은 **세션의 첫 20자 이상 프롬프트에서 최대 5개**다.
+- 이후 모든 질문마다 자동 검색하는 구성은 아니다. 후속 회수는 검색 도구·명령으로 한다.
+- 가림 처리된 전체 프롬프트·Claude 답변 등이 전송된다. 일반 도구 출력·전체 파일은 로컬에 남는다고 설명한다.
+- telemetry에 보내지 않는 항목과 기억 추출을 위해 보내는 항목은 구분해야 한다.
+
+근거: [현행 README](https://github.com/mem0ai/mem0/blob/main/integrations/claude-code-plugin/README.md), [hooks.json](https://github.com/mem0ai/mem0/blob/main/integrations/claude-code-plugin/hooks/hooks.json).
+
+### 비용·중복·판단
+
+- 저장소는 Apache 2.0이지만, 이 플러그인은 Platform 키를 전제로 한다.
+- 현재 가격표는 Free/Custom이며 초기 30일 모델 호출 포함, 이후 BYOK·초과 사용 조건을 설명한다.
+- 검색 결과에 남은 예전 Hobby/Pro 가격표보다 실제 현행 가격 페이지를 기준으로 봐야 한다.
+- Mem0 오픈소스 엔진을 직접 운영하는 것과 이 Claude 플러그인을 설치하는 것은 같은 구성이 아니다.
+- 현재 개인용 3층 조합에 덧붙이면 서비스·기억 저장 위치만 늘 수 있다.
+- 자동 Obsidian 위키 통합은 확인하지 않았다.
+
+출처: [가격](https://mem0.ai/pricing), [라이선스](https://github.com/mem0ai/mem0/blob/main/LICENSE).
+
+## 8. Hindsight Coding Agents — 여러 agent의 프로젝트 기억 공유
+
+**판정: Claude Code와 다른 코딩 agent가 한 프로젝트 기억을 공유해야 할 때 유력한 대체 후보.**
+
+- 제작자는 **Vectorize**, 공식 저장소는 `vectorize-io/hindsight`다.
+- 기억 서버는 retain·recall·reflect 기능과 MCP를 제공하며 MIT 라이선스다.
+- 현행 통합은 `@vectorize-io/hindsight-coding-agents`다. 예전 Claude Code 전용 통합은 공식적으로 retired 상태다.
+- 단순 MCP 연결과 coding-agents의 hook·스킬·자동 수집 설치는 구분해야 한다.
+
+### 확인된 자동화
+
+- `SessionStart`: 새 저장소의 기억을 준비하고 프로젝트 안내 문맥을 제공한다.
+- `UserPromptSubmit`: 기본 설정에서 세션 첫 프롬프트에 관련 기억을 종합해 주입한다.
+- `Stop`: 세션 transcript를 기억으로 보낸다. 매 질문마다 recall한다는 뜻은 아니다.
+- 통합은 Git 이력·대화·프로젝트 지식 페이지를 저장소별 bank로 관리한다.
+- 기존 대화 가져오기와 코드베이스 조사도 사용량을 발생시킬 수 있다.
+
+근거: [현행 통합 문서](https://hindsight.vectorize.io/sdks/integrations/coding-agents), [시작 hook](https://github.com/vectorize-io/hindsight/blob/main/hindsight-integrations/coding-agents/src/claude-sessionstart-hook.ts), [Stop hook](https://github.com/vectorize-io/hindsight/blob/main/hindsight-integrations/coding-agents/src/claude-stop-hook.ts).
+
+### 운영·데이터·비용
+
+- Cloud, 직접 운영 서버, 로컬 daemon 중 선택한다. 현재 기본 mode는 Cloud다.
+- 기본적으로 모든 프로젝트에 기억이 활성화되므로 제한하려면 `optInOnly`와 허용 경로를 설정한다.
+- 로컬 daemon도 추출용 LLM이 필요하다. 외부 API나 Claude Code를 쓰면 “모든 처리 로컬”이 아니다.
+- macOS daemon은 `uv`와 현행 Rust toolchain까지 필요하다고 문서화되어 있어 운영 부담이 있다.
+- Cloud는 사용량 과금, self-host 소프트웨어는 무료지만 서버·모델 호출 비용은 별도다.
+- 현재 조합에 일괄 추가하기보다 episodic-memory와의 중복을 비교해 한 프로젝트에서 대체 평가할 만하다.
+- bank의 지식 페이지와 Obsidian 위키는 다른 저장 체계다. 자동 동기화로 소개하지 않는다.
+
+출처: [운영 모드·설정](https://hindsight.vectorize.io/sdks/integrations/coding-agents), [가격](https://vectorize.io/pricing), [구형 통합 종료 안내](https://hindsight.vectorize.io/sdks/integrations/claude-code).
+
+## 9. Pieces MCP — Claude 밖에서 했던 일까지 회상
+
+**판정: 브라우저·회의·다른 앱의 작업 맥락이 필요하면 추가. 코딩 대화 기록만 필요하면 후순위.**
+
+- PiecesOS와 Long-Term Memory Engine을 MCP로 연결하는 상용 데스크톱 제품이다.
+- Claude Code 전용 transcript hook 플러그인과는 수집 범위가 다르다.
+- PiecesOS 실행, LTM 활성화, 캡처 범위 설정과 MCP 연결이 각각 필요하다.
+- 활성화된 LTM이 업무 맥락을 수집하며, Claude는 `ask_pieces_ltm` 도구로 과거 맥락을 요청한다.
+- 이 도구 호출은 모델 판단에 따른 검색이다. 매 프롬프트 검색 hook·시작 시 자동 주입은 확인하지 않았다.
+
+### 데이터가 로컬이라는 설명의 범위
+
+- 제품은 로컬 저장·캡처·OCR·검색을 설명한다.
+- 다만 현행 약관은 기억 형성·보강·요약·응답에 관련 텍스트·시각·음성 데이터를 cloud LLM으로 전송한다고 명시한다.
+- 따라서 “로컬에 저장하므로 외부 전송이 없다”는 추천은 부정확하다.
+- 수집 대상이 코딩 대화보다 넓으므로, 필요한 앱·업무 범위를 정하는 일이 제품 선택의 일부다.
+
+### 비용·중복·판단
+
+- 확인 당시 Pro는 월 결제 $18.99/사용자, 7일 체험이며 유료 서비스다.
+- 제품 전체는 상용 약관의 사용 라이선스다. 오픈소스 SDK가 있다고 제품 전체가 오픈소스인 것은 아니다.
+- 여러 앱에 흩어진 작업을 회상하는 목적이면 현재 조합에 없는 기능을 제공한다.
+- 회수한 내용을 claude-obsidian의 선별 저장 절차로 정리할 수는 있지만 기본 자동 통합은 확인하지 않았다.
+
+출처: [MCP 문서](https://docs.pieces.app/products/mcp), [연결 안내](https://docs.pieces.app/products/mcp/claude-desktop), [가격](https://pieces.app/pricing), [약관](https://pieces.app/legal/terms).
+
+## 10. Letta / MemFS / Letta Code — 별도 실행 환경으로 분리해서 평가
+
+**판정: Claude Code에 기억 플러그인 하나를 추가하려는 현재 목적에서는 후순위.**
+
+- Letta Code는 별도 stateful agent 실행 환경이다. MemFS는 그 agent의 Git 기반 기억 파일시스템이다.
+- Letta Code 저장소는 Apache 2.0이며, Cloud 이용료·모델 사용료와는 별개다.
+- 기억을 Markdown으로 읽고 수정하며 commit·push를 통해 상태를 보존·동기화한다.
+- Cloud agent의 기억·대화·설정은 Letta 쪽에 보관되고, 로컬 agent는 로컬 기억 저장소를 사용할 수 있다.
+
+### 자동화와 검색
+
+- agent가 지속 가치가 있는 정보를 기억하며 `/remember`로 명시적으로 가르칠 수도 있다.
+- 선택형 dreaming은 백그라운드 agent가 대화를 검토·정리하는 기능이며 모델 사용량이 추가된다.
+- MemFS 루트 기억은 매 턴 문맥에 포함되고, 깊은 디렉터리는 필요할 때 읽는다.
+- **MemFS 자체에 기본 벡터 검색은 없다.** 선택형 검색 mod의 의미·hybrid 검색은 QMD 설치·색인을 요구한다.
+- 대화 검색과 MemFS 파일 검색도 별개다.
+
+근거: [Letta Code](https://github.com/letta-ai/letta-code), [MemFS](https://docs.letta.com/concepts/memfs), [memory·dreaming](https://docs.letta.com/configuration/memory).
+
+### Claude Code와 연결하는 별도 경로
+
+- hosted Letta MCP는 Claude Code 등이 **기억을 가진 Letta agent를 만들고 작업을 위임**하도록 한다.
+- 이는 Claude의 모든 대화를 자동 보관하는 플러그인이 아니다. 보낸 메시지와 실행은 Letta 환경에 속한다.
+- 문서상 hosted MCP 작업은 Cloud computer에서 승인 프롬프트 없는 실행 모드를 사용한다.
+- 단순 기억 검색 목적에 비해 agent·비용·권한 구조가 커지므로, 장기 작업을 위임할 필요가 있을 때 검토한다.
+- 확인 당시 개인 Free/Pro가 있고 Pro는 월 $20이다. API·모델 초과 사용은 별도 조건이다.
+
+출처: [Hosted MCP](https://docs.letta.com/platform/hosted-mcp), [가격](https://docs.letta.com/pricing).
+
+## 11. 현재 사용자에게 권하는 적용 순서
+
+1. 선택한 3층 설계의 실제 플러그인 연결·vault 초기화부터 별도 작업으로 완료한다.
+2. 실제 노트와 질의를 쌓고, 기존 검색에서 어떤 자료를 놓치는지 확인한다.
+3. 표현이 다른 관련 노트를 못 찾으면 **QMD**를 읽기 검색으로 추가 평가한다.
+4. 다른 MCP 클라이언트도 vault를 읽어야 하면 **MCPVault 읽기 전용**을 평가한다.
+5. 활성 노트·앱 명령이 필요하면 MCPVault 대신 또는 필요한 범위에 **Local REST API 내장 MCP**를 검토한다.
+6. 여러 agent의 자동 프로젝트 기억이 핵심이면 **Hindsight**, 클라우드 기반 자동 회상이면 **Supermemory/Mem0 중 하나**를 대체 평가한다.
+7. 코딩 밖의 업무 회상이 필요할 때만 Pieces, 별도 장기 agent가 필요할 때만 Letta를 검토한다.
+
+이 순서는 평가 제안이다. 이번 조사에서 위 도구를 설치하거나 기억 전송을 활성화하지 않았다.
+
+## 12. 자동화를 더할 때 실제로 확인할 항목
+
+| 확인할 항목 | 확인 방법 |
+|---|---|
+| 저장 성공 | 다음 세션에서 원래 내용·출처를 실제 회수할 수 있는지 확인 |
+| 검색 시점 | 시작 시 한 번, 첫 유효 질문, 매 질문, 모델 선택 중 무엇인지 확인 |
+| 주입량 | 과거 기억이 현재 지시와 충돌하거나 불필요하게 길어지지 않는지 확인 |
+| 대상 범위 | 프로젝트별 bank·collection·vault가 의도한 경로만 포함하는지 확인 |
+| 데이터 경로 | 로컬 캡처, 외부 추출, hosted 저장, Claude 문맥 전달을 구분 |
+| 원본 관리 | 검색 인덱스·추출된 기억과 사람이 관리하는 원문·지식 노트를 구분 |
+| 사용량 | 반복 검색, 임베딩, 추출, reflect, dreaming, 배경 조사 비용을 함께 확인 |
+
+추가 검색 도구는 기존 위키의 원문 보존·검증 절차를 바꾸지 않고도 평가할 수 있다.
+반대로 자동 대화 저장 제품 여러 개를 동시에 켜면 무엇이 기억을 만들고 주입했는지 구분하기 어려워진다.
+이번 후보 중 **설치만으로 episodic-memory의 대화를 claude-obsidian 위키로 자동 통합하는 기본 연동은 확인하지 않았다.**
+
+[전체 목차](00-index.md)
