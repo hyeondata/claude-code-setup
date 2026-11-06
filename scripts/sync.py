@@ -207,6 +207,8 @@ def preserve_paths(repo: Path, args: argparse.Namespace) -> list[str]:
         flags += ['--node', str(Path(node).expanduser().absolute())]
     if args.with_optional:
         flags.append('--with-optional')
+    if args.memory:
+        flags += ['--memory', args.memory]
     return flags
 
 
@@ -250,6 +252,8 @@ def main(argv: list[str] | None = None) -> int:
     pull_parser.add_argument('--claude-home')
     pull_parser.add_argument('--node')
     pull_parser.add_argument('--with-optional', action='store_true')
+    pull_parser.add_argument('--memory', choices=('full', 'none'),
+                             help='Memory profile passed to bootstrap; default reuses the last applied profile')
     pull_parser.add_argument('--dry-run', action='store_true', help='Offline installer preview; no fetch/pull or writes by bootstrap')
     args = parser.parse_args(argv)
     try:

@@ -43,12 +43,14 @@
     {
       "id": "episodic-memory@superpowers-marketplace",
       "version_verified": "1.6.0",
-      "optional": false
+      "optional": false,
+      "memory": true
     },
     {
       "id": "claude-obsidian@agricidaniel-claude-obsidian",
       "version_verified": "3.0.1",
-      "optional": false
+      "optional": false,
+      "memory": true
     },
     {
       "id": "claude-md-management@claude-plugins-official",

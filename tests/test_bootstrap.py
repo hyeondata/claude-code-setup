@@ -77,6 +77,55 @@ class MergeTests(unittest.TestCase):
             bootstrap.managed_instructions(bootstrap.BEGIN, 'x')
 
 
+class MemoryProfileTests(unittest.TestCase):
+    arguments = (Path('/setup/automation'), Path('/vault'), Path('/bin/python3'), Path('/bin/node'))
+
+    def test_none_adds_no_hooks_env_or_rules_and_keeps_user_entries(self):
+        existing = {'hooks': {'Stop': [{'hooks': [{'type': 'command', 'command': 'echo other'}]}]},
+                    'env': {'KEEP': 'yes'}, 'permissions': {'allow': ['Bash(git status)']}}
+        merged, state = bootstrap.merge_settings(existing, *self.arguments, {}, '/usr/bin', 'none')
+        self.assertEqual(merged['hooks'], existing['hooks'])
+        self.assertEqual(merged['env'], {'KEEP': 'yes'})
+        self.assertEqual(merged['permissions'], {'allow': ['Bash(git status)']})
+        self.assertTrue(merged['autoMemoryEnabled'])
+        self.assertEqual(state['memory'], 'none')
+
+    def test_none_on_empty_settings_adds_only_auto_memory(self):
+        merged, _ = bootstrap.merge_settings({}, *self.arguments, {}, '/usr/bin', 'none')
+        self.assertEqual(merged, {'autoMemoryEnabled': True})
+
+    def test_switching_full_to_none_removes_only_owned_entries(self):
+        full, state = bootstrap.merge_settings({'env': {'KEEP': 'yes'}}, *self.arguments, {}, '/usr/bin')
+        full['hooks']['Stop'].append({'hooks': [{'type': 'command', 'command': 'echo other'}]})
+        none, state2 = bootstrap.merge_settings(full, *self.arguments, state, '/usr/bin', 'none')
+        self.assertNotIn('memory_hooks.py', json.dumps(none['hooks']))
+        self.assertEqual(none['hooks']['Stop'], [{'hooks': [{'type': 'command', 'command': 'echo other'}]}])
+        self.assertNotIn('SessionStart', none['hooks'])
+        self.assertNotIn('CLAUDE_OBSIDIAN_VAULT', none['env'])
+        self.assertEqual(none['env']['KEEP'], 'yes')
+        self.assertFalse(any('memory_cli.py' in rule for rule in none['permissions']['allow']))
+        again, state3 = bootstrap.merge_settings(none, *self.arguments, state2, '/usr/bin', 'none')
+        self.assertEqual(again, none)
+        self.assertEqual(state3, state2)
+
+    def test_profile_sections_in_template(self):
+        text = 'a\n<!-- memory:full -->\nF\n<!-- /memory:full -->\n<!-- memory:none -->\nN\n<!-- /memory:none -->\nz\n'
+        self.assertEqual(bootstrap.select_profile_sections(text, 'full'), 'a\nF\nz\n')
+        self.assertEqual(bootstrap.select_profile_sections(text, 'none'), 'a\nN\nz\n')
+        with self.assertRaises(ValueError):
+            bootstrap.select_profile_sections('<!-- memory:full -->\nF\n', 'full')
+
+    def test_real_template_renders_both_profiles(self):
+        values = {'VAULT_PATH': '/v', 'AUTOMATION_DIR': '/a', 'PYTHON_PATH': '/p', 'NODE_PATH': '/n'}
+        template = SCRIPT.parents[1] / 'config/CLAUDE.md.tmpl'
+        full = bootstrap.render(template, values, 'full')
+        none = bootstrap.render(template, values, 'none')
+        self.assertIn('episodic-memory to retrieve', full)
+        self.assertNotIn('episodic-memory', none)
+        self.assertNotIn('AUTOMATION.md', none)
+        self.assertIn('native Auto memory', none)
+
+
 class FilesystemTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -134,6 +183,20 @@ class FilesystemTests(unittest.TestCase):
         self.assertEqual(json.loads((self.home / 'settings.json').read_text())['env']['KEEP'], 'value')
         backups = list((self.home / 'setup-backups').glob('*'))
         self.assertEqual(len(backups), 1)
+
+    def test_none_profile_skips_memory_plugins_and_automation_and_is_remembered(self):
+        manifest = json.loads((self.repo / 'config/plugins.json').read_text())
+        manifest['plugins'].append({'id': 'memory@test', 'memory': True})
+        (self.repo / 'config/plugins.json').write_text(json.dumps(manifest))
+        commands = bootstrap.plugin_commands(self.repo, self.home, False, 'none')
+        self.assertNotIn(['plugin', 'install', 'memory@test', '--scope', 'user', '--json'], commands)
+        self.assertIn(['plugin', 'install', 'first@test', '--scope', 'user', '--json'], commands)
+        self.assertEqual(bootstrap.main(self.args() + ['--apply', '--memory', 'none']), 0)
+        self.assertFalse((self.repo / 'automation/config.json').exists())
+        self.assertEqual(bootstrap.resolve_memory(None, self.home), 'none')
+        first = self.tree()
+        self.assertEqual(bootstrap.main(self.args() + ['--apply']), 0)  # reuses stored profile
+        self.assertEqual(self.tree(), first)
 
     def test_plugin_install_updates_are_not_overwritten(self):
         def fake_run(argv, **kwargs):

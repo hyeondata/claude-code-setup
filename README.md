@@ -45,6 +45,42 @@ cd "$HOME/claude"
 ~/claude/claude-sync pull --with-optional
 ```
 
+### 기억 구성 선택(`--memory`)
+
+| 값 | 설치·연결되는 것 | 쓰는 경우 |
+|---|---|---|
+| `full`(기본) | 내장 Auto memory + episodic-memory + claude-obsidian + 이 저장소의 생애주기 훅(시작·입력·종료 시 검색·동기화) | 새 컴퓨터에 기억 체계가 없을 때 |
+| `none` | 내장 Auto memory만 켬. 기억 플러그인 2개, 훅, 관련 env·권한 규칙, `automation/config.json`을 만들지 않음 | 그 컴퓨터에 이미 다른 기억 체계(예: 대화 수집 훅·인계 노트·노트 검색)가 있어 대화를 이중으로 저장하지 않으려 할 때 |
+
+```sh
+~/claude/claude-sync pull --memory none
+```
+
+- 고른 값은 `~/.claude/claude-code-setup-state.json`에 남아 다음 `claude-sync pull`에서 그대로 쓰입니다. 바꿀 때만 `--memory`를 다시 지정합니다.
+- `full`에서 `none`으로 바꾸면 이 저장소가 넣었던 훅·env·권한 규칙만 지웁니다. 다른 훅과 사용자 설정, 이미 설치된 플러그인은 그대로 둡니다(플러그인은 필요하면 `claude plugin uninstall`로 직접 지웁니다).
+- `none`에서도 개발 절차 플러그인(Superpowers, Matt, pstack, Context7 등)은 똑같이 설치됩니다.
+
+### graphify(코드 지식 그래프, 컴퓨터별 설치)
+
+[graphify](https://github.com/Graphify-Labs/graphify)는 Claude 플러그인이 아니라 Python CLI라서 이 저장소가 설치하지 않습니다. 설치 스크립트는 없으면 안내만 출력합니다.
+
+```sh
+uv tool install graphifyy                 # CLI: graphify, graphify-mcp
+graphify install --platform claude        # 전역 스킬(~/.claude/skills/graphify)과 CLAUDE.md 안내
+```
+
+프로젝트마다(그래프를 쓸 저장소 안에서):
+
+```sh
+/graphify .                               # Claude Code 안에서 첫 그래프 생성(graphify-out/)
+graphify claude install                   # 프로젝트 CLAUDE.md 규칙 + PreToolUse 안내 훅
+graphify hook install                     # 커밋 시 그래프 자동 갱신(git 훅)
+claude mcp add --scope local graphify -- "$(command -v graphify-mcp)" "$PWD/graphify-out/graph.json"
+```
+
+- MCP는 그래프 파일 경로가 프로젝트마다 달라 `local` 범위로 프로젝트별 등록합니다.
+- `graphify-out/`을 git에 넣지 않으려면 `.git/info/exclude`에 추가합니다.
+
 ## 관리되는 파일과 보존 범위
 
 - `config/CLAUDE.md.tmpl`: 영어 운영 지침의 원본. 응답과 개인 노트는 한국어 기본값입니다.
