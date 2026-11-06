@@ -213,6 +213,15 @@ class FilesystemTests(unittest.TestCase):
         self.assertEqual(settings['enabledPlugins'], {'first@test': True})
         self.assertEqual(run.call_args.kwargs['env']['CLAUDE_CONFIG_DIR'], str(self.home))
 
+    def test_default_home_does_not_set_config_dir(self):
+        with patch.object(bootstrap, 'canonical', side_effect=lambda v: self.home if str(v) == '~/.claude'
+                          else Path(v).expanduser().resolve()), \
+                patch.dict(os.environ, {'CLAUDE_CONFIG_DIR': str(self.home)}), \
+                patch.object(bootstrap.shutil, 'which', return_value='/fake/claude'), \
+                patch.object(bootstrap.subprocess, 'run', return_value=None) as run:
+            self.assertEqual(bootstrap.main(self.args() + ['--apply', '--install-plugins']), 0)
+        self.assertNotIn('CLAUDE_CONFIG_DIR', run.call_args.kwargs['env'])
+
     def test_symlink_output_is_rejected_without_write(self):
         self.home.mkdir()
         target = self.root / 'other-settings.json'

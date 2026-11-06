@@ -359,7 +359,12 @@ def main(argv: list[str] | None = None) -> int:
     print('Rollback: restore existing files from manifest.json; remove only generated files marked existed=false.')
     if commands:
         env = os.environ.copy()
-        env['CLAUDE_CONFIG_DIR'] = str(claude_home)
+        # The default home must not be passed explicitly: with CLAUDE_CONFIG_DIR set, the CLI reads
+        # <dir>/.claude.json instead of ~/.claude.json and creates a fresh, empty global config there.
+        if claude_home != canonical('~/.claude'):
+            env['CLAUDE_CONFIG_DIR'] = str(claude_home)
+        else:
+            env.pop('CLAUDE_CONFIG_DIR', None)
         for command in commands:
             subprocess.run([claude, *command], check=True, env=env)
         # Native installation edits settings; merge again rather than overwrite its updates.
